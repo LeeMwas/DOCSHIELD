@@ -67,18 +67,89 @@ else:
 qr_detector = cv2.QRCodeDetector()
 
 def decode(image, symbols=None):
-    """Wrapper for cv2.QRCodeDetector to mimic pyzbar.decode() behavior."""
-    data, points, _ = qr_detector.detectAndDecode(image)
+    """
+    Enhanced QR decoder with multiple detection strategies.
+    Tries various preprocessing and parameter combinations to maximize detection rate.
+    """
+    if image is None or image.size == 0:
+        return []
+    
+    # Ensure image is 2D (grayscale)
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image
+    
+    class QRCode:
+        def __init__(self, qr_data, qr_points, polygon):
+            self.data = qr_data.encode() if isinstance(qr_data, str) else qr_data
+            self.points = qr_points
+            self.polygon = polygon if polygon is not None else []
+    
+    # Strategy 1: Direct detection on grayscale
+    data, points, _ = qr_detector.detectAndDecode(gray)
     if data:
-        # Return a list with a single object that mimics pyzbar's structure
-        class QRCode:
-            def __init__(self, qr_data, qr_points, polygon):
-                self.data = qr_data.encode() if isinstance(qr_data, str) else qr_data
-                self.points = qr_points
-                self.polygon = polygon if polygon is not None else []
-        # polygon is the corner points as tuples for cv2 drawing
         polygon = [tuple(pt) for pt in points] if points is not None else []
         return [QRCode(data, points, polygon)]
+    
+    # Strategy 2: CLAHE enhancement (Contrast Limited Adaptive Histogram Equalization)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
+    data, points, _ = qr_detector.detectAndDecode(enhanced)
+    if data:
+        polygon = [tuple(pt) for pt in points] if points is not None else []
+        return [QRCode(data, points, polygon)]
+    
+    # Strategy 3: Bilateral filtering + detection (smooths while preserving edges)
+    bilateral = cv2.bilateralFilter(gray, 9, 75, 75)
+    data, points, _ = qr_detector.detectAndDecode(bilateral)
+    if data:
+        polygon = [tuple(pt) for pt in points] if points is not None else []
+        return [QRCode(data, points, polygon)]
+    
+    # Strategy 4: Thresholding with Otsu's method
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    data, points, _ = qr_detector.detectAndDecode(thresh)
+    if data:
+        polygon = [tuple(pt) for pt in points] if points is not None else []
+        return [QRCode(data, points, polygon)]
+    
+    # Strategy 5: Morphological operations (erosion/dilation) to clean up
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    morph = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
+    morph = cv2.morphologyEx(morph, cv2.MORPH_OPEN, kernel)
+    data, points, _ = qr_detector.detectAndDecode(morph)
+    if data:
+        polygon = [tuple(pt) for pt in points] if points is not None else []
+        return [QRCode(data, points, polygon)]
+    
+    # Strategy 6: Histogram equalization
+    hist_eq = cv2.equalizeHist(gray)
+    data, points, _ = qr_detector.detectAndDecode(hist_eq)
+    if data:
+        polygon = [tuple(pt) for pt in points] if points is not None else []
+        return [QRCode(data, points, polygon)]
+    
+    # Strategy 7: Inverted image (in case QR is white on black)
+    inverted = 255 - gray
+    data, points, _ = qr_detector.detectAndDecode(inverted)
+    if data:
+        polygon = [tuple(pt) for pt in points] if points is not None else []
+        return [QRCode(data, points, polygon)]
+    
+    # Strategy 8: Multi-scale detection (resize and try again)
+    for scale in [0.5, 1.5, 2.0]:
+        if 0.3 < scale < 3.0:  # Reasonable scale range
+            resized = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_LINEAR)
+            data, points, _ = qr_detector.detectAndDecode(resized)
+            if data:
+                # Scale points back to original
+                if points is not None:
+                    points = points / scale
+                polygon = [tuple(pt) for pt in points] if points is not None else []
+                return [QRCode(data, points, polygon)]
+    
+    # No QR code detected
     return []
 
 class ZBarSymbol:
@@ -617,15 +688,87 @@ def embed_qr_into_image(src_path: str, qr_pil: Image.Image, out_path: str):
     base.save(out_path, {"jpg": "JPEG", "jpeg": "JPEG"}.get(ext, "PNG"))
 
 def extract_qr_from_array(frame: np.ndarray):
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    """
+    Extract QR code from image array with multiple fallback strategies.
+    """
+    if frame is None or frame.size == 0:
+        return None
+    
+    # Convert to grayscale if needed
+    if len(frame.shape) == 3:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = frame
+    
+    # Primary detection attempt
     codes = decode(gray)
     if codes:
-        return codes[0].data.decode()
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        try:
+            return codes[0].data.decode()
+        except:
+            return codes[0].data if isinstance(codes[0].data, str) else None
+    
+    # Strategy 1: Try with stronger CLAHE
+    clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(4, 4))
     enhanced = clahe.apply(gray)
     codes = decode(enhanced)
     if codes:
-        return codes[0].data.decode()
+        try:
+            return codes[0].data.decode()
+        except:
+            return codes[0].data if isinstance(codes[0].data, str) else None
+    
+    # Strategy 2: Try Gaussian blur to reduce noise
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    codes = decode(blurred)
+    if codes:
+        try:
+            return codes[0].data.decode()
+        except:
+            return codes[0].data if isinstance(codes[0].data, str) else None
+    
+    # Strategy 3: Try median blur
+    median = cv2.medianBlur(gray, 5)
+    codes = decode(median)
+    if codes:
+        try:
+            return codes[0].data.decode()
+        except:
+            return codes[0].data if isinstance(codes[0].data, str) else None
+    
+    # Strategy 4: Multiple scale attempts with preprocessing
+    for scale in [0.7, 1.3, 1.5]:
+        resized = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        enhanced = clahe.apply(resized)
+        codes = decode(enhanced)
+        if codes:
+            try:
+                return codes[0].data.decode()
+            except:
+                return codes[0].data if isinstance(codes[0].data, str) else None
+    
+    # Strategy 5: Try adapted thresholding
+    thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                                   cv2.THRESH_BINARY, 11, 2)
+    codes = decode(thresh)
+    if codes:
+        try:
+            return codes[0].data.decode()
+        except:
+            return codes[0].data if isinstance(codes[0].data, str) else None
+    
+    # Strategy 6: Unsharp masking to enhance details
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    blurred_img = cv2.GaussianBlur(gray, (0, 0), 2.0)
+    sharpened = cv2.addWeighted(gray, 1.5, blurred_img, -0.5, 0)
+    codes = decode(sharpened)
+    if codes:
+        try:
+            return codes[0].data.decode()
+        except:
+            return codes[0].data if isinstance(codes[0].data, str) else None
+    
     return None
 
 def extract_qr_from_pil(pil_img: Image.Image):
