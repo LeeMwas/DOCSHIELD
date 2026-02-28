@@ -15,7 +15,7 @@ Android / Chrome will show a "connection not private" warning — tap Advanced �
 Proceed to <IP> to bypass it (this is normal for self-signed certs on LAN).
 
 INSTALL DEPS:
-    pip install flask flask-cors qrcode[pil] opencv-python pyzbar pillow numpy pymupdf scipy cryptography psycopg2-binary
+    pip install flask flask-cors qrcode[pil] opencv-python pillow numpy pymupdf scipy cryptography psycopg2-binary
 """
 
 # ── Try to import tkinter (not available in cloud environments) ──
@@ -62,7 +62,28 @@ if TKINTER_AVAILABLE:
     from PIL import ImageTk
 else:
     ImageTk = None
-from pyzbar.pyzbar import decode, ZBarSymbol
+
+# OpenCV's built-in QR code detector (no system dependencies needed)
+qr_detector = cv2.QRCodeDetector()
+
+def decode(image, symbols=None):
+    """Wrapper for cv2.QRCodeDetector to mimic pyzbar.decode() behavior."""
+    data, points, _ = qr_detector.detectAndDecode(image)
+    if data:
+        # Return a list with a single object that mimics pyzbar's structure
+        class QRCode:
+            def __init__(self, qr_data, qr_points, polygon):
+                self.data = qr_data.encode() if isinstance(qr_data, str) else qr_data
+                self.points = qr_points
+                self.polygon = polygon if polygon is not None else []
+        # polygon is the corner points as tuples for cv2 drawing
+        polygon = [tuple(pt) for pt in points] if points is not None else []
+        return [QRCode(data, points, polygon)]
+    return []
+
+class ZBarSymbol:
+    """Dummy class to maintain compatibility."""
+    QRCODE = None
 
 # Flask
 from flask import Flask, request, jsonify, send_file, Response
@@ -82,12 +103,6 @@ except ImportError:
     SCIPY_AVAILABLE = False
     def dct(x, norm=None):
         return x
-
-import ctypes
-try:
-    ctypes.cdll.LoadLibrary("libzbar-0.dll")
-except Exception:
-    pass
 
 # =============================================================================
 # CONFIGURATION
@@ -603,12 +618,12 @@ def embed_qr_into_image(src_path: str, qr_pil: Image.Image, out_path: str):
 
 def extract_qr_from_array(frame: np.ndarray):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    codes = decode(gray, symbols=[ZBarSymbol.QRCODE])
+    codes = decode(gray)
     if codes:
         return codes[0].data.decode()
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     enhanced = clahe.apply(gray)
-    codes = decode(enhanced, symbols=[ZBarSymbol.QRCODE])
+    codes = decode(enhanced)
     if codes:
         return codes[0].data.decode()
     return None
@@ -2114,7 +2129,7 @@ class CameraTab(tk.Frame):
         ret, frame = self.camera.read()
         if ret:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            codes = decode(gray, symbols=[ZBarSymbol.QRCODE])
+            codes = decode(gray)
             if codes:
                 for qr in codes:
                     pts = qr.polygon

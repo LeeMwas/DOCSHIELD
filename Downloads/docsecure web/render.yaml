@@ -2,8 +2,6 @@ services:
   - type: web
     name: docshield
     runtime: python
-    nativePackages:
-      - libzbar0
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT app:flask_app
     envVars:
