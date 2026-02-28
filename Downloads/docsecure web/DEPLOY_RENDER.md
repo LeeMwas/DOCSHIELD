@@ -51,20 +51,33 @@ git push origin main
 
 ---
 
-## 🎯 Step 3: Configure Deployment Settings
+## 🎯 Step 3: System Dependencies Configuration
+
+**IMPORTANT:** Your app uses `pyzbar` which requires the `libzbar0` system library. This is already configured in the project:
+
+- **render.yaml** - Tells Render to install system dependencies during build
+- **build.sh** - Alternative build script for system dependency installation
+
+These files are **already in your repo**, so Render will automatically use them! ✅
+
+---
+
+## 🎯 Step 4: Configure Deployment Settings
 
 | Setting | Value |
 |---------|-------|
 | **Name** | `docshield` |
 | **Environment** | `Python 3` |
 | **Build Command** | `pip install -r requirements.txt` |
-| **Start Command** | `python app.py` |
+| **Start Command** | `gunicorn app:flask_app` |
 | **Instance Type** | `Free` |
 | **Region** | `Ohio` (free tier) |
 
+**Note:** The system dependencies (libzbar0) will be installed automatically via `render.yaml`
+
 ---
 
-## 🎯 Step 4: Add Environment Variables
+## 🎯 Step 5: Add Environment Variables
 
 Click "Advanced" and add:
 
@@ -78,11 +91,11 @@ FLASK_DEBUG=False
 
 ---
 
-## 🎯 Step 5: Deploy!
+## 🎯 Step 6: Deploy!
 
 1. **Click:** "Create Web Service"
 2. **Wait:** ~5-10 minutes for deployment
-3. **Check:** Logs for any errors
+3. **Check:** Logs for any errors (you should see "libzbar0" being installed in build logs)
 4. **Access:** Your deployment URL (something like `https://docshield.onrender.com`)
 
 ---

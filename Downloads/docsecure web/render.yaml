@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: docshield
+    runtime: python
+    buildCommand: apt-get update && apt-get install -y libzbar0
+    startCommand: gunicorn --bind 0.0.0.0:$PORT app:flask_app
+    envVars:
+      - key: FLASK_ENV
+        value: production
