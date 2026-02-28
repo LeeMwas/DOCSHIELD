@@ -191,6 +191,12 @@ ADMIN_PORT = 5444        # Admin interface on separate port
 CERT_FILE = "docshield.crt"
 KEY_FILE  = "docshield.key"
 
+# ── Public URL for QR codes (production deployment) ──────────────────────────
+# This is where QR codes will redirect when scanned by any QR scanner
+# Local network: users can set via environment variable
+# Production: redirects to Render deployment
+PUBLIC_URL = "https://docshield-3obv.onrender.com"
+
 # ── PostgreSQL connection (Render.com) ──────────────────────────────────────
 DATABASE_URL = (
     "postgresql://doc_shield_user:KudGYk0cMyczIMSDgpUTkApibFbIxvX9"
@@ -619,9 +625,26 @@ def make_qr_payload(doc_id, bound_hash, verify_url=None):
         return verify_url  # URL format: http://IP:5000/?verify=DOCID&hash=HASH
     return json.dumps(data, separators=(",", ":"))
 
-def build_verify_url(doc_id: str, bound_hash: str) -> str:
-    """Build the full verify URL that will be embedded in QR codes."""
-    base = f"https://{LOCAL_IP}:{WEB_PORT}"
+def build_verify_url(doc_id: str, bound_hash: str, use_public: bool = True) -> str:
+    """
+    Build the full verify URL that will be embedded in QR codes.
+    
+    Args:
+        doc_id: Document ID
+        bound_hash: Document bound hash
+        use_public: If True, use PUBLIC_URL (for issued documents/QR codes)
+                   If False, use LOCAL_IP (for local/LAN only verification)
+    
+    Returns:
+        Full verification URL that QR code will redirect to
+    """
+    if use_public:
+        # For public QR codes - use Render URL so any scanner works globally
+        base = PUBLIC_URL
+    else:
+        # For local LAN only - use local IP
+        base = f"https://{LOCAL_IP}:{WEB_PORT}"
+    
     return f"{base}/?verify={doc_id}&hash={bound_hash}"
 
 def generate_qr_pil(payload: str, size_px: int = 300) -> Image.Image:
