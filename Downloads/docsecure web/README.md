@@ -56,6 +56,18 @@ python DOCUMENT_SECURER_WEB.py
 - Admin Dashboard: https://localhost:5443/admin
 - Android/LAN: https://<your-ip>:5443
 
+### 🌩️ Deploy to Cloud (FREE)
+
+Want to go live? Choose your platform:
+
+| Platform | Time | Cost | Guide |
+|----------|------|------|-------|
+| **Render** | 5-10 min | Free | [→ Deploy to Render](DEPLOY_RENDER.md) |
+| **Railway** | 2-3 min | $5 credits | [→ Deploy to Railway](DEPLOY_RAILWAY.md) |
+| **PythonAnywhere** | Instant | Free | [→ Deploy to PythonAnywhere](DEPLOY_PYTHONANYWHERE.md) |
+
+**[→ Full Deployment Guide](DEPLOYMENT.md)** - Compare all options
+
 ---
 
 ## 🔧 Configuration
