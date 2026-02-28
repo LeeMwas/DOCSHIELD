@@ -1,0 +1,84 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Project specific
+docshield.crt
+docshield.key
+*.pem
+*.csr
+
+# Local database (use PostgreSQL in production)
+issued_documents.json
+
+# Logs
+*.log
+logs/
+
+# Cache
+.cache/
+*.cache
+
+# OS
+.DS_Store
+Thumbs.db
+*.exe
+*.zip
+*.tar.gz
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+.tox/
+
+# Credentials (NEVER commit these!)
+.env.local
+.env.*.local
+credentials/
+secrets/
+config/production.py
+
+# Temp files
+*.tmp
+temp/
+tmp/
+
+# Push scripts with tokens
+push_with_token.py
+push_to_github.py
+push_to_github_v2.py
