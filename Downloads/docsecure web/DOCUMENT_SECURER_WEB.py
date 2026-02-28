@@ -18,8 +18,27 @@ INSTALL DEPS:
     pip install flask flask-cors qrcode[pil] opencv-python pyzbar pillow numpy pymupdf scipy cryptography psycopg2-binary
 """
 
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+# ── Try to import tkinter (not available in cloud environments) ──
+try:
+    import tkinter as tk
+    from tkinter import ttk, messagebox, filedialog
+    TKINTER_AVAILABLE = True
+except (ImportError, RuntimeError):
+    TKINTER_AVAILABLE = False
+    # Mock tkinter objects for cloud-only environments
+    class tk:
+        Frame = object
+        BooleanVar = lambda value=False: None
+        Label = lambda **kwargs: None
+        Button = lambda **kwargs: None
+        StringVar = lambda value="": None
+        Canvas = lambda **kwargs: None
+        Entry = lambda **kwargs: None
+        Text = lambda **kwargs: None
+    ttk = None
+    messagebox = None
+    filedialog = None
+
 import hashlib
 import json
 import os
@@ -37,7 +56,12 @@ import io
 import qrcode
 import cv2
 import numpy as np
-from PIL import Image, ImageTk, ImageDraw, ImageFont, ImageEnhance
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+# ImageTk is only imported when tkinter is available
+if TKINTER_AVAILABLE:
+    from PIL import ImageTk
+else:
+    ImageTk = None
 from pyzbar.pyzbar import decode, ZBarSymbol
 
 # Flask
@@ -1684,10 +1708,11 @@ def run_flask():
 
 
 # =============================================================================
-# RESULT PANEL (GUI)
+# RESULT PANEL (GUI) - Only loaded in local environments with tkinter
 # =============================================================================
 
-class ResultPanel(tk.Frame):
+if TKINTER_AVAILABLE:
+    class ResultPanel(tk.Frame):
     def __init__(self, parent):
         super().__init__(parent, bg="#f0f0f0", relief="solid", borderwidth=2)
         self.IDLE = "#f0f0f0"
@@ -2177,61 +2202,65 @@ class UploadTab(tk.Frame):
             self.result.show_fake(result["message"], result.get("confidence", 0.0))
 
 
-# =============================================================================
-# MAIN APPLICATION
-# =============================================================================
+    # =============================================================================
+    # MAIN APPLICATION (GUI)
+    # =============================================================================
 
-class App:
-    def __init__(self):
-        self.root = tk.Tk()
-        self.root.title("Document Security System  [Web: https://localhost:5443]")
-        self.root.geometry("900x980")
-        self.root.update_idletasks()
-        w, h = self.root.winfo_width(), self.root.winfo_height()
-        x = (self.root.winfo_screenwidth() // 2) - (w // 2)
-        y = (self.root.winfo_screenheight() // 2) - (h // 2)
-        self.root.geometry(f"{w}x{h}+{x}+{y}")
+    class App:
+        def __init__(self):
+            self.root = tk.Tk()
+            self.root.title("Document Security System  [Web: https://localhost:5443]")
+            self.root.geometry("900x980")
+            self.root.update_idletasks()
+            w, h = self.root.winfo_width(), self.root.winfo_height()
+            x = (self.root.winfo_screenwidth() // 2) - (w // 2)
+            y = (self.root.winfo_screenheight() // 2) - (h // 2)
+            self.root.geometry(f"{w}x{h}+{x}+{y}")
 
-        # Header
-        header = tk.Frame(self.root, bg="#1A237E", height=60)
-        header.pack(fill="x")
-        header.pack_propagate(False)
-        tk.Label(header, text="🔐  Document Security System  🔐",
-                 font=("Arial", 18, "bold"), bg="#1A237E", fg="white").pack(expand=True)
+            # Header
+            header = tk.Frame(self.root, bg="#1A237E", height=60)
+            header.pack(fill="x")
+            header.pack_propagate(False)
+            tk.Label(header, text="🔐  Document Security System  🔐",
+                     font=("Arial", 18, "bold"), bg="#1A237E", fg="white").pack(expand=True)
 
-        # Web server info bar
-        info_frame = tk.Frame(self.root, bg="#1B5E20")
-        info_frame.pack(fill="x")
-        web_url = f"https://localhost:{WEB_PORT}"
-        admin_url = f"https://localhost:{WEB_PORT}/admin"
-        lan_url = f"https://{LOCAL_IP}:{WEB_PORT}"
-        lan_admin = f"https://{LOCAL_IP}:{WEB_PORT}/admin"
-        info_label = tk.Label(
-            info_frame,
-            text=f"🌐  Users: {web_url}  |  Admins: {admin_url}  (accept cert warning)",
-            font=("Arial", 10, "bold"), bg="#1B5E20", fg="#A5D6A7", cursor="hand2")
-        info_label.pack(pady=6)
-        info_label.bind("<Button-1>", lambda e: webbrowser.open(web_url))
+            # Web server info bar
+            info_frame = tk.Frame(self.root, bg="#1B5E20")
+            info_frame.pack(fill="x")
+            web_url = f"https://localhost:{WEB_PORT}"
+            admin_url = f"https://localhost:{WEB_PORT}/admin"
+            lan_url = f"https://{LOCAL_IP}:{WEB_PORT}"
+            lan_admin = f"https://{LOCAL_IP}:{WEB_PORT}/admin"
+            info_label = tk.Label(
+                info_frame,
+                text=f"🌐  Users: {web_url}  |  Admins: {admin_url}  (accept cert warning)",
+                font=("Arial", 10, "bold"), bg="#1B5E20", fg="#A5D6A7", cursor="hand2")
+            info_label.pack(pady=6)
+            info_label.bind("<Button-1>", lambda e: webbrowser.open(web_url))
 
-        # Registry info
-        info2 = tk.Frame(self.root, bg="#E8EAF6")
-        info2.pack(fill="x", padx=10, pady=3)
-        db_status = "✅ Supabase PostgreSQL connected" if _get_conn() else "⚠ Using local JSON fallback"
-        tk.Label(info2, text=f"Registry: {db_status}  |  {DATABASE_URL.split('@')[1].split('?')[0]}",
-                 font=("Arial", 9), bg="#E8EAF6", fg="#1A237E").pack()
+            # Registry info
+            info2 = tk.Frame(self.root, bg="#E8EAF6")
+            info2.pack(fill="x", padx=10, pady=3)
+            db_status = "✅ Supabase PostgreSQL connected" if _get_conn() else "⚠ Using local JSON fallback"
+            tk.Label(info2, text=f"Registry: {db_status}  |  {DATABASE_URL.split('@')[1].split('?')[0]}",
+                     font=("Arial", 9), bg="#E8EAF6", fg="#1A237E").pack()
 
-        # Notebook
-        notebook = ttk.Notebook(self.root)
-        notebook.pack(fill="both", expand=True, padx=10, pady=5)
-        notebook.add(IssueTab(notebook), text="  📄 Issue Document  ")
-        notebook.add(CameraTab(notebook), text="  📷 Camera Verify  ")
-        notebook.add(UploadTab(notebook), text="  📂 Upload Verify  ")
+            # Notebook
+            notebook = ttk.Notebook(self.root)
+            notebook.pack(fill="both", expand=True, padx=10, pady=5)
+            notebook.add(IssueTab(notebook), text="  📄 Issue Document  ")
+            notebook.add(CameraTab(notebook), text="  📷 Camera Verify  ")
+            notebook.add(UploadTab(notebook), text="  📂 Upload Verify  ")
 
-        self.status = tk.Label(self.root, text=f"Ready  |  Web UI: https://localhost:{WEB_PORT}  |  Admin: https://localhost:{WEB_PORT}/admin", bd=1, relief="sunken", anchor="w")
-        self.status.pack(fill="x", padx=10, pady=2)
+            self.status = tk.Label(self.root, text=f"Ready  |  Web UI: https://localhost:{WEB_PORT}  |  Admin: https://localhost:{WEB_PORT}/admin", bd=1, relief="sunken", anchor="w")
+            self.status.pack(fill="x", padx=10, pady=2)
 
-    def run(self):
-        self.root.mainloop()
+        def run(self):
+            self.root.mainloop()
+
+else:
+    # Stub for cloud environments without tkinter
+    App = None
 
 
 # =============================================================================
@@ -2243,7 +2272,7 @@ if __name__ == "__main__":
     print("  DocShield — Document Security System")
     print("=" * 70)
 
-    # Connect to Supabase PostgreSQL and ensure table exists
+    # Connect to PostgreSQL and ensure table exists
     print("  [DB] Connecting to PostgreSQL…")
     init_db()
 
@@ -2280,9 +2309,15 @@ if __name__ == "__main__":
     flask_thread.start()
     time.sleep(1.5)  # Give Flask a moment to bind
 
-    # Open user interface in browser automatically
-    webbrowser.open(f"{scheme}://localhost:{WEB_PORT}")
-
-    # Launch tkinter GUI
-    app = App()
-    app.run()
+    # Open user interface in browser automatically (only if tkinter available)
+    if TKINTER_AVAILABLE:
+        webbrowser.open(f"{scheme}://localhost:{WEB_PORT}")
+        # Launch tkinter GUI
+        app = App()
+        app.run()
+    else:
+        print("  [INFO] Cloud environment detected (no tkinter). Flask web server running.")
+        print("  [INFO] Access the interface at the URLs above.")
+        # Keep the Flask thread alive
+        while True:
+            time.sleep(1)
