@@ -11,6 +11,15 @@ from DOCUMENT_SECURER_WEB import (
     generate_self_signed_cert, _get_conn, run_flask
 )
 
+# Initialize database on startup
+try:
+    init_db()
+except Exception as e:
+    print(f"Warning: Database initialization failed: {e}")
+
+# Gunicorn looks for this variable
+application = flask_app
+
 if __name__ == "__main__":
     print("=" * 70)
     print("  🛡️ DocShield Web Server — Cloud Deployment")
@@ -42,3 +51,4 @@ if __name__ == "__main__":
         debug=False,
         use_reloader=False
     )
+
