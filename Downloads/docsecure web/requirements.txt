@@ -10,3 +10,4 @@ scipy==1.11.4
 cryptography==41.0.7
 psycopg2-binary==2.9.9
 GitPython==3.1.40
+gunicorn==21.2.0
